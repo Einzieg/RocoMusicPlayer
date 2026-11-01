@@ -122,13 +122,27 @@ class MusicService:
         with self.lock:
             if self.closed.is_set() or (self.closing and method not in ("get_state", "stop", "cancel_job")):
                 raise RuntimeError("引擎正在关闭")
-            if method in ("play", "resume", "next", "previous") and "stop_sequence" in params:
+            if method in ("prepare_playback", "play", "resume", "next", "previous") and "stop_sequence" in params:
                 if params["stop_sequence"] != self.stop_sequence:
                     raise ScoreError("已收到停止操作，本次播放请求已取消；请重新点击播放")
             if method == "get_state":
                 return self._snapshot()
             if method == "get_process_id":
                 return {"pid": os.getpid()}
+            if method == "dd_diagnostics":
+                self._editable()
+                from dd_diagnostics import diagnose
+                from main import find_dd_driver_dll
+                return diagnose(find_dd_driver_dll())
+            if method == "prepare_playback":
+                self._editable()
+                self.library.get(params.get("id") or self.library.current_id)
+                if self.target is None or self.target.state() == "closed":
+                    raise ScoreError("请先捕获游戏窗口")
+                if self.library.settings['backend'] == 'DD':
+                    self._backend().ensure_ready()
+                # Preparation never clears the stop latch or transfers foreground focus.
+                return {"prepared": True}
             if method == "get_score":
                 item = self._arranged(params["id"])
                 mapping = mapping_from_settings(self.library.settings)

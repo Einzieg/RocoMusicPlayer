@@ -8,6 +8,7 @@ from ctypes import wintypes
 import customtkinter as ctk
 from pynput import keyboard
 from dd_init_guard import suppress_start_menu
+from dd_diagnostics import record as record_dd, runtime_log_path, verify_library
 
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
@@ -330,6 +331,7 @@ class Win32InputBackend:
 
 class DDInputBackend:
     def __init__(self):
+        self._initialize_lock = threading.RLock()
         self.dll = None
         self.dll_path = None
         self.dd_btn = None
@@ -351,21 +353,26 @@ class DDInputBackend:
         return f"{SEND_MODE_DD} [{candidate.name}]"
 
     def ensure_ready(self):
-        if self.dll is not None:
-            return None
-
-        driver_path = self.candidate_path()
-        if driver_path is None:
-            raise InputBackendError(
-                f"未找到 DD 驱动 DLL，请将 DLL 放到程序目录、DD 子目录，或设置环境变量 {DD_DRIVER_ENV}"
-            )
-
-        try:
-            with suppress_start_menu():
-                self._initialize(driver_path)
-        except Exception:
-            self.dll = None
-            raise
+        # DLL handles become visible during loading; serialize readiness, not just LoadLibrary.
+        with self._initialize_lock:
+            if self.dll is not None:
+                return None
+            driver_path = self.candidate_path()
+            started = time.monotonic()
+            record_dd('initialize_started', path=str(driver_path))
+            try:
+                if driver_path is None:
+                    raise InputBackendError(f"未找到 DD 驱动 DLL，请重新安装完整包，或设置 {DD_DRIVER_ENV}")
+                verify_library(driver_path)
+                with suppress_start_menu():
+                    self._initialize(driver_path)
+                record_dd('initialize_ready', path=str(driver_path),
+                          duration_ms=round((time.monotonic() - started) * 1000))
+            except Exception as exc:
+                self.dll = self.dd_btn = self.dd_key = self.dd_todc = None
+                record_dd('initialize_failed', path=str(driver_path), error=str(exc),
+                          duration_ms=round((time.monotonic() - started) * 1000))
+                raise InputBackendError(f"{exc}；诊断日志：{runtime_log_path()}") from exc
         return None
 
     def _initialize(self, driver_path):
@@ -389,10 +396,12 @@ class DDInputBackend:
         self.dd_todc.restype = ctypes.c_int
 
         status = self.dd_btn(0)
+        record_dd('initialize_attempt', attempt=1, result=status)
         if status != 1:
             # The bundled DD example waits for the DLL's asynchronous initialization.
             time.sleep(2.0)
             status = self.dd_btn(0)
+            record_dd('initialize_attempt', attempt=2, result=status)
         if status != 1:
             self.dll = None
             raise InputBackendError(f"DD 初始化失败，返回值: {status}")

@@ -14,6 +14,9 @@ from music_score import DEFAULT_MAPPING
 
 class ReplayTests(unittest.TestCase):
     def setUp(self):
+        integrity_patch = patch("main.verify_library")
+        integrity_patch.start()
+        self.addCleanup(integrity_patch.stop)
         self.guard_patch = patch("main.suppress_start_menu")
         self.guard_patch.start()
         self.addCleanup(self.guard_patch.stop)

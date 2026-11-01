@@ -21,6 +21,12 @@ export async function runTransport(
     await dependencies.send('pause', { paused: true });
     return;
   }
+  if (dependencies.cancelled()) return;
+  if (action === 'play' && !state.preview && state.settings.backend === 'DD') {
+    // Keep the player window in place until DD startup and its Win-key guard finish.
+    await dependencies.send('prepare_playback', { id, stop_sequence: state.stop_sequence });
+    if (dependencies.cancelled()) return;
+  }
   await dependencies.prepareWindow();
   if (dependencies.cancelled()) return;
   const params = { activate_target: !state.preview, stop_sequence: state.stop_sequence };

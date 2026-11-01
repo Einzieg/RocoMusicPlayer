@@ -98,6 +98,39 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.service.handle("get_process_id"), {"pid": os.getpid()})
         self.factory.assert_not_called()
 
+    def test_prepare_playback_never_activates_or_sends_input(self):
+        self.service.target.state.return_value = 'background'
+        self.service.handle('prepare_playback', {'id': self.a, 'stop_sequence': 0})
+        self.backend.ensure_ready.assert_called_once()
+        self.service.target.activate.assert_not_called()
+        self.backend.press_keyboard_action.assert_not_called()
+        self.assertFalse(self.service.player.running)
+
+    def test_prepare_playback_honors_stale_stop_and_invalid_target(self):
+        self.service.handle('stop')
+        with self.assertRaisesRegex(ValueError, '停止操作'):
+            self.service.handle('prepare_playback', {'id': self.a, 'stop_sequence': 0})
+        self.service.target.state.return_value = 'closed'
+        with self.assertRaisesRegex(ValueError, '捕获'):
+            self.service.handle('prepare_playback', {'id': self.a, 'stop_sequence': 1})
+        self.factory.assert_not_called()
+
+    def test_initialization_failure_never_activates_game(self):
+        self.backend.ensure_ready.side_effect = RuntimeError('DD failed')
+        with self.assertRaisesRegex(RuntimeError, 'DD failed'):
+            self.service.handle('play', {'id': self.a, 'activate_target': True})
+        self.service.target.activate.assert_not_called()
+        self.backend.press_keyboard_action.assert_not_called()
+        self.assertFalse(self.service.player.running)
+
+    def test_readonly_dd_diagnostic_rpc_never_creates_backend(self):
+        with patch('dd_diagnostics.diagnose', return_value={'note': 'readonly'}) as diagnose, \
+                patch('main.find_dd_driver_dll', return_value=Path('fake.dll')):
+            self.assertEqual(self.service.handle('dd_diagnostics'), {'note': 'readonly'})
+            diagnose.assert_called_once_with(Path('fake.dll'))
+        self.factory.assert_not_called()
+        self.service.target.activate.assert_not_called()
+
     def test_gui_resume_refocuses_then_continues_same_session(self):
         self.start_background_session()
         worker = self.service.player._thread

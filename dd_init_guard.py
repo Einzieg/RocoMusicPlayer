@@ -4,6 +4,12 @@ from contextlib import contextmanager
 import ctypes
 from ctypes import wintypes
 import threading
+import time
+
+from dd_diagnostics import record
+
+
+SETTLE_SECONDS = 0.52
 
 
 class _WinKeyHook:
@@ -12,10 +18,13 @@ class _WinKeyHook:
         self.cancelled = threading.Event()
         self.error = None
         self.thread_id = None
+        self.suppressed = 0
         self.thread = threading.Thread(target=self._run, name='dd-init-guard', daemon=True)
 
     def _filter(self, code, message, data):
         if code >= 0 and ctypes.cast(data, ctypes.POINTER(wintypes.DWORD))[0] in (0x5B, 0x5C):
+            # Keep the low-level hook fast: aggregate here, write logs after cleanup.
+            self.suppressed += 1
             return 1
         return self.user32.CallNextHookEx(None, code, message, data)
 
@@ -33,6 +42,7 @@ class _WinKeyHook:
                 ('GetMessageW', (ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT), ctypes.c_int),
                 ('PeekMessageW', (ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT), wintypes.BOOL),
                 ('PostThreadMessageW', (wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM), wintypes.BOOL),
+                ('GetAsyncKeyState', (ctypes.c_int,), ctypes.c_short),
             ):
                 function = getattr(api, name)
                 function.argtypes, function.restype = args, result
@@ -76,15 +86,27 @@ class _WinKeyHook:
             self.user32.PostThreadMessageW(self.thread_id, 0x12, 0, 0)
         self.thread.join(timeout=1.0)
 
+    def key_state(self):
+        if not hasattr(self, 'user32'):
+            return None
+        return {name: bool(self.user32.GetAsyncKeyState(vk) & 0x8000)
+                for name, vk in (('lwin', 0x5B), ('rwin', 0x5C))}
+
 
 @contextmanager
 def suppress_start_menu():
     # Driver input need not carry LLKHF_INJECTED. Block both down and up.
     listener = _WinKeyHook()
+    started = time.monotonic()
     try:
         listener.start()
+        record('guard_started', settle_ms=SETTLE_SECONDS * 1000, keys=listener.key_state())
         yield
     finally:
-        # Allow already queued startup key-up events to reach the hook.
-        threading.Event().wait(0.15)
+        # HID events can arrive after DD_btn returns, including on failure/retry.
+        threading.Event().wait(SETTLE_SECONDS)
         listener.stop()
+        record('guard_stopped', suppressed=listener.suppressed,
+               duration_ms=round((time.monotonic() - started) * 1000),
+               keys=listener.key_state(), thread_alive=listener.thread.is_alive(),
+               error=str(listener.error) if listener.error else None)

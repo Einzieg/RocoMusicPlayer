@@ -501,3 +501,7 @@ h1 { font-size: 31px; letter-spacing: 1px; line-height: 1.45; font-weight: 550; 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; scroll-behavior: auto !important; }
 }
+.dd-diagnostics { overflow-wrap: anywhere; }
+.dd-diagnostics li { margin: 8px 0; }
+.dd-diagnostics code { user-select: text; font-size: 12px; }
+.dd-diagnostics summary { cursor: pointer; }

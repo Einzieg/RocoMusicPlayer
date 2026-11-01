@@ -3,6 +3,7 @@ import type { Settings } from '../types';
 import { pitchName, toDraft, validateSettings } from '../lib/model';
 import type { SettingsDraft } from '../lib/model';
 import Icon from './Icon';
+import DdDiagnostics from './DdDiagnostics';
 
 export default function SettingsPage({ settings, locked, connected, targetReady, onSave, onCapture, onCalibrate }: {
   settings: Settings;
@@ -62,6 +63,7 @@ export default function SettingsPage({ settings, locked, connected, targetReady,
       </section>
       <div className="settings-save"><span className={error ? 'error-text' : 'muted'} role="status">{error || (saved ? '设置已保存。' : dirty ? '有尚未保存的修改' : '设置以桌面后端返回值为准')}</span><div className="button-row"><button className="button secondary" type="button" disabled={locked || !dirty} onClick={() => { setDraft(toDraft(settings)); setDirty(false); setError(''); setSaved(false); }}>放弃修改</button><button className="button primary" type="submit" disabled={locked || !dirty}><Icon name="check" size={17} />保存设置</button></div></div>
     </form>
+    <DdDiagnostics disabled={locked || !connected} />
     <section className="safety-panel"><div className="section-heading"><div><h2><Icon name="shield" size={19} />失焦保护与快捷键</h2><p>真实演奏必须先捕获目标窗口。目标失焦时，后端保护会阻止继续向错误窗口发送按键。</p></div></div>
       <div className="safety-columns"><div><p>点击播放后，请在倒计时内切回目标窗口。不要在真实演奏期间切换窗口或输入文字。若需要观察本界面，请使用无按键预览。</p><div className="hotkeys"><span><kbd>F8</kbd>播放</span><span><kbd>F9</kbd>暂停 / 继续</span><span><kbd>F10</kbd>停止</span></div><p className="fine-print">快捷键由桌面后端处理；浏览器界面预览不会注册全局热键。</p></div>
         <div className="calibration"><h3>真实 DD 按键校准</h3><p>这不是无按键预览。确认后将延迟 3 秒，向已捕获目标发送真实测试键。</p><div className="test-keys">测试键：{settings.mapping.map(({ key }) => key).join(' · ')}</div><div className="button-row"><button type="button" className="button secondary" disabled={locked} onClick={onCapture}><Icon name="target" size={16} />捕获目标</button><button type="button" className="button gold" disabled={locked || !targetReady || settings.backend !== 'DD' || dirty} onClick={onCalibrate}>确认并校准</button></div><small>{!targetReady ? '请先捕获目标。' : settings.backend !== 'DD' ? '请先保存 DD 后端设置。' : dirty ? '请先保存或放弃修改。' : '将再次弹出真实按键确认。'}</small></div></div>

@@ -167,7 +167,7 @@ class InputAdapterTests(unittest.TestCase):
         backend = DDInputBackend()
         backend.candidate_path = Mock(return_value=Path("mock-dd.dll"))
         with patch("main.ctypes.WinDLL", return_value=dll), patch("main.time.sleep") as sleep, \
-                patch("main.suppress_start_menu") as guard:
+                patch("main.suppress_start_menu") as guard, patch("main.verify_library"):
             backend.ensure_ready()
         guard.return_value.__enter__.assert_called_once()
         guard.return_value.__exit__.assert_called_once()

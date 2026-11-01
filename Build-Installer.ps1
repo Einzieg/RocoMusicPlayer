@@ -34,10 +34,16 @@ try {
         $dd = (Resolve-Path -LiteralPath $DDPackagePath).Path
         $ddStage = Join-Path $stage 'drivers/dd'
         New-Item -ItemType Directory -Path "$ddStage/drv" -Force | Out-Null
+        $hashJson = & $python -c 'import json, sys; sys.path.insert(0, sys.argv[1]); from dd_diagnostics import PACKAGE_HASHES; print(json.dumps(PACKAGE_HASHES))' $root
+        if ($LASTEXITCODE -ne 0) { throw 'Cannot load pinned DD package hashes.' }
+        $expectedHashes = $hashJson | ConvertFrom-Json -AsHashtable
         $files = @('ddhid.63340.dll', 'drv/ddc.exe', 'drv/ddhid63340.inf', 'drv/ddhid63340.sys', 'drv/ddhid63340.cat')
         foreach ($file in $files) {
             $source = Join-Path $dd $file
             if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing DD package file: $file" }
+            if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash -ne $expectedHashes[$file]) {
+                throw "DD package hash mismatch: $file. Review the package before updating pinned hashes."
+            }
             if ($file -in @('ddhid.63340.dll', 'drv/ddc.exe', 'drv/ddhid63340.cat')) {
                 if ((Get-AuthenticodeSignature -LiteralPath $source).Status -ne 'Valid') {
                     throw "DD signature validation failed: $file"

@@ -69,6 +69,8 @@ export interface RpcParams {
   online_search: { query: string; page: number };
   online_download: { id: string };
   get_state: Record<string, never>;
+  dd_diagnostics: Record<string, never>;
+  prepare_playback: { id?: string; stop_sequence: number };
   import_score: { path: string };
   add_text: { title: string; text: string };
   transcribe: { path: string; engine: TranscriptionEngine; register: MelodyRegister; texture: ScoreTexture };
@@ -91,7 +93,18 @@ export interface RpcParams {
   calibrate: { delay: 3 };
 }
 export type RpcResult<M extends keyof RpcParams> = M extends 'get_state'
-  ? AppState : M extends 'get_score' ? ScoreDetail : M extends 'audition' ? AuditionResult : unknown;
+  ? AppState : M extends 'dd_diagnostics' ? DdDiagnostics : M extends 'get_score' ? ScoreDetail : M extends 'audition' ? AuditionResult : unknown;
+
+export interface DdDiagnostics {
+  checked_at: string;
+  files: { path: string; status: string; sha256?: string; error?: string }[];
+  device: { registered: boolean; state: number | null; devices: { id: string; problem: number; started: boolean; query_result: number }[] } | null;
+  issues: string[];
+  runtime_log: string;
+  install_logs: string;
+  note: string;
+  log_saved: boolean;
+}
 
 export interface OnlineCatalog {
   query: string;

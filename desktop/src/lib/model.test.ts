@@ -118,9 +118,38 @@ test('window shrink completes before play/resume asks backend to focus game', as
       cancelled: () => false,
       send: async (method, params) => { calls.push([method, params]); },
     });
-    assert.deepEqual(calls, ['window', [action, action === 'play'
+    assert.deepEqual(calls, [...(action === 'play' ? [['prepare_playback', { id: 'a', stop_sequence: 0 }]] : []), 'window', [action, action === 'play'
       ? { activate_target: true, stop_sequence: 0, id: 'a', preview: false }
       : { activate_target: true, stop_sequence: 0 }]]);
+  }
+});
+
+test('DD preparation failure or stop never shrinks window or starts playback', async () => {
+  let resized = false;
+  const sent: string[] = [];
+  await assert.rejects(runTransport('play', EMPTY_STATE, 'a', {
+    prepareWindow: async () => { resized = true; }, cancelled: () => false,
+    send: async (method) => { sent.push(method); throw new Error('DD failed'); },
+  }), /DD failed/);
+  assert.equal(resized, false);
+  assert.deepEqual(sent, ['prepare_playback']);
+  let stopped = false;
+  await runTransport('play', EMPTY_STATE, 'a', {
+    prepareWindow: async () => { resized = true; }, cancelled: () => stopped,
+    send: async (method) => { assert.equal(method, 'prepare_playback'); stopped = true; },
+  });
+  assert.equal(resized, false);
+});
+
+test('preview and Win32 playback skip DD preparation', async () => {
+  for (const state of [{ ...EMPTY_STATE, preview: true },
+    { ...EMPTY_STATE, settings: { ...EMPTY_STATE.settings, backend: 'Win32' as const } }]) {
+    const methods: string[] = [];
+    await runTransport('play', state, 'a', {
+      prepareWindow: async () => {}, cancelled: () => false,
+      send: async (method) => { methods.push(method); },
+    });
+    assert.deepEqual(methods, ['play']);
   }
 });
 
