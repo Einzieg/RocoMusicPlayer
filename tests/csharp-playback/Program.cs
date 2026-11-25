@@ -86,7 +86,8 @@ var dispatcher = new Thread(() =>
 });
 dispatcher.SetApartmentState(ApartmentState.STA);
 dispatcher.Start();
-Check(dispatcher.Join(5000) && windowError == null, $"WPF 快捷键注册失败：{windowError}");
+Check(dispatcher.Join(TimeSpan.FromSeconds(45)), "WPF 快捷键检查线程启动或退出超时");
+if (windowError != null) throw new InvalidOperationException("WPF 快捷键注册失败", windowError);
 Console.WriteLine("通过：连击、和弦、无按键预览、失焦暂停与释放、手动恢复、停止重试、准备中取消、WPF 后台快捷键注册。");
 
 internal sealed class FakeSink : IKeySink
