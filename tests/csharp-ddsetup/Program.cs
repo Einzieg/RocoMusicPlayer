@@ -52,6 +52,7 @@ try
     foreach (string name in DdPackage.Runtimes.Concat(DdPackage.Hashes.Keys.Where(k => k.StartsWith("drv/")).Select(k => k[4..])))
         File.WriteAllText(Path.Combine(temp.FullName, name), "mock");
     Scenario("hash mismatch", missing, 2, null, verifyForReal: true);
+    CheckPlayerDataCleanup(temp);
     Console.WriteLine($"DDSetup mock checks passed ({number} scenarios).");
 }
 finally
@@ -59,6 +60,32 @@ finally
     if (temp.Parent?.FullName.TrimEnd(Path.DirectorySeparatorChar) == Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar)
         && temp.Name.StartsWith("RocoPlayer-DDSetupChecks-", StringComparison.Ordinal))
         temp.Delete(true);
+}
+
+static void CheckPlayerDataCleanup(DirectoryInfo temp)
+{
+    var data = temp.CreateSubdirectory("自选数据目录");
+    var downloads = data.CreateSubdirectory("online-scores");
+    var session = data.CreateSubdirectory(Path.Combine("calibration", "20261125-235959-123"));
+    string[] owned = [
+        Path.Combine(data.FullName, "library.json"), Path.Combine(data.FullName, $"library.json.{Guid.NewGuid():N}.tmp"),
+        Path.Combine(downloads.FullName, $"{Guid.NewGuid():D}-0123456789abcdef.mid"),
+        Path.Combine(downloads.FullName, $"{Guid.NewGuid():N}.mid"),
+        Path.Combine(session.FullName, "B.wav"), Path.Combine(session.FullName, "measurements.json")
+    ];
+    string[] personal = [Path.Combine(temp.FullName, "导入原件.mid"), Path.Combine(data.FullName, "library.json.bak"),
+        Path.Combine(downloads.FullName, "手动保存.mid"), Path.Combine(session.FullName, "我的录音.wav")];
+    foreach (string path in owned.Concat(personal)) File.WriteAllText(path, "keep");
+    File.WriteAllText(owned[0], JsonSerializer.Serialize(new { version = 1, items = new[] { new { source = personal[0] } }, settings = new { } }));
+    PlayerDataCleanup.Remove(data.FullName);
+    PlayerDataCleanup.Remove(data.FullName);
+    if (owned.Any(File.Exists) || personal.Any(p => !File.Exists(p)))
+        throw new Exception("Uninstall must remove only player-owned files.");
+
+    File.WriteAllText(owned[0], """{"items":["unrelated library"]}""");
+    try { PlayerDataCleanup.Remove(data.FullName); throw new Exception("Unrelated library accepted."); }
+    catch (InvalidDataException) { }
+    if (!File.Exists(owned[0])) throw new Exception("Unrelated library deleted.");
 }
 
 sealed class FakeProcess(int? exitCode) : IVendorProcess

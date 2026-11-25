@@ -9,7 +9,7 @@ RocoMusicPlayer 的 Windows x64 安装包内含 WPF 播放器、.NET 桌面运�
 ```powershell
 $ErrorActionPreference = 'Stop'
 ./scripts/Test-RocoPlayer.ps1
-./scripts/Build-Installer.ps1 -Version '1.0.0'
+./scripts/Build-Installer.ps1 -Version '1.0.1'
 ```
 
 输出位于 `artifacts/RocoMusicPlayer-win-x64-Setup.exe` 和 `artifacts/SHA256SUMS.txt`。默认构建下载厂商提交 `34a1608` 的 63340 压缩包，先核对整个压缩包的 SHA-256，再提取 `2.hid` 中的五个文件并逐一校验。DLL、EXE、CAT 的 Authenticode 签名以及配套的三份 Microsoft VC++ x64 运行库也在构建时检查。生成安装包后再将封装的驱动、运行库、检测助手和主程序与构建输出逐一比对。[厂商版本](https://github.com/ddxoft/master/tree/34a1608ac3754674eb4d2487dc8859b1523bd290) · [组件哈希](../scripts/packaging/dd-package-hashes.json)
@@ -23,11 +23,13 @@ $ErrorActionPreference = 'Stop'
 | 状态 | 结果 |
 | --- | --- |
 | 服务运行且设备就绪 | 跳过驱动安装。 |
-| 没有对应服务或设备 | 从安装目录启动随附的 DD 助手。助手加锁并再次确认状态，调用厂商安装程序一次，然后核对服务与设备。 |
+| 没有对应服务或设备 | 从安装程序的临时目录启动随附的 DD 助手。助手加锁并再次确认状态，调用厂商安装程序一次，然后核对服务与设备。 |
 | 已有异常服务或设备、检测失败、存在上次安装的待处理标记 | 跳过驱动安装，提示查看诊断。 |
 | 厂商安装程序要求重启或运行超时 | 提示重启。超时会留下 `dd-install-pending.json`，用于防止重复启动厂商安装程序。 |
 
-标准安装目录为 `%ProgramFiles%\RocoPlayer WPF`，开始菜单入口为「RocoPlayer WPF」。卸载保留用户谱库和系统中的共享 DD 驱动。安装日志位于 `%ProgramData%\RocoPlayer\logs`。
+首次安装的默认目录为 `%ProgramFiles%\RocoPlayer WPF`，可在「选择安装位置」页更改。升级时会预填已注册的安装目录。安装后，公共桌面的「RocoMusicPlayer」和开始菜单的「RocoPlayer WPF」均指向所选目录中的播放器。驱动安装日志位于 `%ProgramData%\RocoPlayer\logs`。
+
+卸载向导默认保留用户数据。勾选「同时删除我的曲谱和设置」会清理所示目录中的谱库、播放设置、在线下载缓存、键位校准录音和个人运行日志。默认谱库目录为 `%APPDATA%\com.rockmusic.workspace-player`，设置了 `ROCK_MUSIC_DATA_DIR` 时使用自定义目录。手动导入的原文件、用户备份和系统共享的 DD 驱动均会保留。静默卸载也会保留用户数据。
 
 ### DD 诊断
 

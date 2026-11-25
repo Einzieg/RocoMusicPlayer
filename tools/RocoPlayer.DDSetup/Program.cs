@@ -3,6 +3,12 @@ using RocoPlayer.Playback;
 
 try
 {
+    if (args is ["--remove-player-data", var directory, var runtimeLogs])
+    {
+        PlayerDataCleanup.Remove(directory);
+        PlayerDataCleanup.RemoveRuntimeLogs(runtimeLogs);
+        return 0;
+    }
     string? driver = null, logs = null;
     var mode = SetupMode.Install;
     for (int i = 0; i < args.Length; i++)
@@ -24,6 +30,6 @@ try
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine($"DD 安装检查失败：{ex.Message}");
+    Console.Error.WriteLine(ex.Message);
     return 2;
 }

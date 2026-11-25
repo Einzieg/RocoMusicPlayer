@@ -1,7 +1,7 @@
 param(
     [string]$DDPackagePath,
     [ValidatePattern('^(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})\.(0|[1-9]\d{0,4})$')]
-    [string]$Version = '1.0.0'
+    [string]$Version = '1.0.1'
 )
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
@@ -63,17 +63,19 @@ try {
     }
 
     $removeList = Join-Path $stage.FullName 'uninstall-files.nsh'
-    $lines = @(
-        foreach ($file in Get-ChildItem -File -Recurse -LiteralPath $payload) {
-            $relative = [IO.Path]::GetRelativePath($payload, $file.FullName).Replace('$','$$')
-            'Delete "$INSTDIR\' + $relative + '"'
+    function Get-UninstallEntries([IO.DirectoryInfo]$folder, [string]$target) {
+        foreach ($file in $folder.EnumerateFiles()) {
+            'Delete "' + $target + '\' + $file.Name.Replace('$','$$') + '"'
         }
-        foreach ($folder in Get-ChildItem -Directory -Recurse -LiteralPath $payload | Sort-Object { $_.FullName.Length } -Descending) {
-            $relative = [IO.Path]::GetRelativePath($payload, $folder.FullName).Replace('$','$$')
-            'RMDir "$INSTDIR\' + $relative + '"'
+        foreach ($child in $folder.EnumerateDirectories()) {
+            $childTarget = $target + '\' + $child.Name.Replace('$','$$')
+            '!insertmacro IfPackageDirectory "' + $childTarget + '"'
+            Get-UninstallEntries $child $childTarget
+            'RMDir "' + $childTarget + '"'
+            '${EndIf}'
         }
-    )
-    Set-Content -LiteralPath $removeList -Value $lines -Encoding UTF8
+    }
+    Get-UninstallEntries (Get-Item -LiteralPath $payload) '$INSTDIR' | Set-Content -LiteralPath $removeList -Encoding UTF8
     $icon = Join-Path $projectRoot 'src/RocoPlayer/Assets/icon.ico'
     $defines = @("/DSTAGE=$payload","/DCHECK=$probe","/DOUTFILE=$installer","/DICON=$icon","/DREMOVE_LIST=$removeList","/DVERSION=$Version")
     & $compiler /INPUTCHARSET UTF8 /V2 @defines (Join-Path $PSScriptRoot 'packaging/RocoPlayer.nsi')

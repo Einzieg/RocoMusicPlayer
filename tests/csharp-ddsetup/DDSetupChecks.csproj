@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../tools/RocoPlayer.DDSetup/DriverSetup.cs" Link="DriverSetup.cs" />
+    <Compile Include="../../tools/RocoPlayer.DDSetup/PlayerDataCleanup.cs" Link="PlayerDataCleanup.cs" />
     <Compile Include="../../src/RocoPlayer/Playback/DdDeviceInspector.cs" Link="DdDeviceInspector.cs" />
     <Compile Include="../../src/RocoPlayer/Playback/DdPackage.cs" Link="DdPackage.cs" />
     <EmbeddedResource Include="../../scripts/packaging/dd-package-hashes.json" LogicalName="RocoPlayer.DdPackageHashes.json" />
