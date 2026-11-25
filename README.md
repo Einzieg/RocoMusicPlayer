@@ -4,6 +4,14 @@ RocoMusicPlayer 是《洛克王国：世界》的九键乐器播放器。导入 
 
 **[下载 Windows x64 安装包](https://github.com/Einzieg/RocoMusicPlayer/releases/latest/download/RocoMusicPlayer-win-x64-Setup.exe)** · [版本说明和 SHA-256](https://github.com/Einzieg/RocoMusicPlayer/releases/latest) · [使用指南](docs/guide.md)
 
+## 免责声明
+
+RocoMusicPlayer 是玩家独立维护的第三方工具，供曲谱编配、试听和演奏交流。软件按现状提供，担保与责任条款见项目许可。[MIT 许可](LICENSE)
+
+DD 和 Win32 自动演奏会向游戏发送模拟按键。请在启用前确认游戏规则允许此类操作。若被认定为违规，游戏运营方可能限制游戏功能或封停账号。[腾讯游戏许可及服务协议](https://game.qq.com/contract.shtml)
+
+曲谱和游戏音色录音的相关权利归各自权利人所有。公开分享改编的 MIDI 或演奏录音前，请确认已取得所需授权。[第三方内容说明](docs/THIRD_PARTY_NOTICES.md)
+
 ![本地谱库中的曲目、九键时间轴与底部播放栏](docs/images/library.png)
 
 ## 安装与升级
