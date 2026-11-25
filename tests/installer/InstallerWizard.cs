@@ -1,6 +1,8 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 // Operate the native NSIS controls by handle so the check also works on a hosted runner's hidden desktop.
 public static class InstallerWizard
@@ -83,5 +85,22 @@ public static class InstallerWizard
         var popup = GetLastActivePopup(dialog);
         var button = Find(popup, h => ClassName(h) == "Button" && IsWindowEnabled(h));
         if (button != IntPtr.Zero) PostMessageW(popup, 0x0111, new IntPtr(GetDlgCtrlID(button)), button);
+    }
+
+    [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFile(string path, uint access, uint share, IntPtr security, uint creation, uint flags, IntPtr template);
+    [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern uint GetFinalPathNameByHandle(SafeFileHandle handle, StringBuilder path, uint size, uint flags);
+
+    public static string ResolvedPath(string path)
+    {
+        using (var handle = CreateFile(Environment.ExpandEnvironmentVariables(path), 0, 7, IntPtr.Zero, 3, 0x02000000, IntPtr.Zero))
+        {
+            if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error(), "Cannot open " + path);
+            var result = new StringBuilder(32768);
+            uint length = GetFinalPathNameByHandle(handle, result, (uint)result.Capacity, 0);
+            if (length == 0 || length >= result.Capacity) throw new Win32Exception(Marshal.GetLastWin32Error());
+            return result.ToString();
+        }
     }
 }

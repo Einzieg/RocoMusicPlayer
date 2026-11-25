@@ -159,6 +159,7 @@ Section "RocoPlayer"
   SetOutPath "$INSTDIR"
   File /r "${STAGE}\*"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
+  SetOutPath "$INSTDIR" ; shortcut working directory
   CreateShortCut "$DESKTOP\RocoMusicPlayer.lnk" "$INSTDIR\RocoPlayer.exe" "" "$INSTDIR\RocoPlayer.exe" 0
   CreateShortCut "$SMPROGRAMS\RocoPlayer WPF.lnk" "$INSTDIR\RocoPlayer.exe"
   WriteRegStr SHCTX "${APP_REG_KEY}" "DisplayName" "RocoMusicPlayer"

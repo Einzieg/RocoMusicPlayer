@@ -76,11 +76,17 @@ function Check-Installation([string]$directory) {
     }
     $entry = Get-ItemProperty -LiteralPath $registry
     if ($entry.InstallLocation -ne $directory -or !(Test-Path -LiteralPath $target)) { throw "安装目录错误 $directory" }
-    $shell = New-Object -ComObject WScript.Shell
+    $shell = New-Object -ComObject Shell.Application
     foreach ($path in $desktopLink,$menuLink) {
         if (!(Test-Path -LiteralPath $path)) { throw "缺少快捷方式 $path" }
-        $link = $shell.CreateShortcut($path)
-        if ($link.TargetPath -ne $target -or $link.WorkingDirectory -ne $directory) { throw "快捷方式目标或工作目录错误 $path" }
+        $link = $shell.NameSpace((Split-Path -Parent $path)).ParseName((Split-Path -Leaf $path)).GetLink
+        $actualTarget = $link.Path
+        $actualDirectory = $link.WorkingDirectory
+        Write-Output "快捷方式 $path → [$actualTarget]，起始位置 [$actualDirectory]"
+        if ([InstallerWizard]::ResolvedPath($actualTarget) -ne [InstallerWizard]::ResolvedPath($target) -or
+            [InstallerWizard]::ResolvedPath($actualDirectory) -ne [InstallerWizard]::ResolvedPath($directory)) {
+            throw "快捷方式未指向此次安装的目录 [$directory]"
+        }
     }
 }
 
