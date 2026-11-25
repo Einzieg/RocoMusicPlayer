@@ -1,0 +1,103 @@
+name: Windows build and release
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: pwsh
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Test and package Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: Run regression checks
+        run: |
+          $ErrorActionPreference = 'Stop'
+          ./scripts/Test-RocoPlayer.ps1
+      - name: Build installer with DD 63340
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if (!(Test-Path -LiteralPath (Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'))) {
+            choco install nsis --yes --no-progress
+          }
+          if (!(Test-Path -LiteralPath (Join-Path $env:ProgramFiles '7-Zip/7z.exe'))) {
+            choco install 7zip --yes --no-progress
+          }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') { throw '正式版标签须为 v主版本.次版本.补丁版本' }
+            ./scripts/Build-Installer.ps1 -Version $env:GITHUB_REF_NAME.Substring(1)
+          } else {
+            ./scripts/Build-Installer.ps1
+          }
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: RocoMusicPlayer-win-x64
+          path: |
+            artifacts/RocoMusicPlayer-win-x64-Setup.exe
+            artifacts/SHA256SUMS.txt
+          if-no-files-found: error
+          compression-level: 0
+
+  publish:
+    name: Publish tagged release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: windows-2025
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: RocoMusicPlayer-win-x64
+          path: release
+      - name: Verify and publish the tested installer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          $tag = $env:GITHUB_REF_NAME
+          $repo = $env:GITHUB_REPOSITORY
+          $name = 'RocoMusicPlayer-win-x64-Setup.exe'
+          $setup = Join-Path 'release' $name
+          $sums = Join-Path 'release' 'SHA256SUMS.txt'
+          $hash = (Get-FileHash -LiteralPath $setup -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ((Get-Content -LiteralPath $sums -Raw -Encoding UTF8).TrimEnd() -cne "$hash  $name") { throw '下载的构建产物校验失败' }
+
+          $releases = gh api --paginate "repos/$repo/releases?per_page=100" --jq '.[] | [.tag_name, .draft] | @tsv'
+          $existing = @($releases | Where-Object { ($_ -split "\t")[0] -ceq $tag })
+          if (!$existing) {
+            $notes = Join-Path 'docs/releases' "$tag.md"
+            $options = if (Test-Path -LiteralPath $notes) { @('--notes-file', $notes) } else { @('--generate-notes') }
+            gh release create $tag --repo $repo --verify-tag --draft --title "RocoMusicPlayer $tag" @options
+          } elseif (($existing[0] -split "\t")[1] -eq 'false') {
+            $assets = gh release view $tag --repo $repo --json assets --jq '.assets[].name'
+            if ($name -notin $assets -or 'SHA256SUMS.txt' -notin $assets) { throw '已公开的版本缺少文件，请核对该版本' }
+            Write-Output "$tag 已发布"
+            return
+          }
+          gh release upload $tag $setup $sums --repo $repo --clobber
+          gh release edit $tag --repo $repo --draft=false --latest

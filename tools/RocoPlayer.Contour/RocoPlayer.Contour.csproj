@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/RocoPlayer/Music/*.cs" Link="Music/%(Filename)%(Extension)" />
+    <Compile Include="../../src/RocoPlayer/Playback/PlaybackPlan.cs" Link="PlaybackPlan.cs" />
+  </ItemGroup>
+</Project>

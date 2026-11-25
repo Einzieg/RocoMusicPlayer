@@ -1,136 +1,60 @@
-<div align="center">
+# RocoMusicPlayer
 
-![RocoPlayer](docs/assets/banner.svg)
+RocoMusicPlayer 是《洛克王国：世界》的九键乐器播放器。导入 MIDI 或简谱后，可以对照原谱和九键编配，用游戏实录的手碟音色试听，再在捕获的游戏窗口中演奏。
 
-# RocoPlayer
+**[下载 Windows x64 安装包](https://github.com/Einzieg/RocoMusicPlayer/releases/latest/download/RocoMusicPlayer-win-x64-Setup.exe)** · [版本说明和 SHA-256](https://github.com/Einzieg/RocoMusicPlayer/releases/latest) · [使用指南](docs/guide.md)
 
-**把旋律整理成谱，把乐谱带进游戏。**
+![本地谱库中的曲目、九键时间轴与底部播放栏](docs/images/library.png)
 
-面向《洛克王国：世界》九键乐器的 Windows 桌面播放器
+## 安装与升级
 
-![Windows](https://img.shields.io/badge/Windows_10%2F11-x64-0078D4?style=flat-square)
-![Tauri](https://img.shields.io/badge/Tauri-2-24C8D8?style=flat-square)
-![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square)
-![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat-square)
-[![License](https://img.shields.io/badge/Original_code-MIT-8B5CF6?style=flat-square)](LICENSE)
-[![Checks](https://github.com/Einzieg/RocoPlayer/actions/workflows/ci.yml/badge.svg)](https://github.com/Einzieg/RocoPlayer/actions/workflows/ci.yml)
+在 Windows 10 或 11 的 x64 系统运行安装包，并按提示授予管理员权限。安装包自带 .NET 桌面运行时、音频识别模型和 DD 63340 驱动。
 
-[快速开始](#快速开始) · [使用指南](docs/guide.md) · [安装包构建](docs/packaging.md) · [问题反馈](https://github.com/Einzieg/RocoPlayer/issues)
+| 安装前检测结果 | 安装程序的处理 |
+| --- | --- |
+| 已有正常的 DD 服务和设备 | 直接安装播放器，复用现有驱动。 |
+| 未发现 DD 服务或关联设备 | 自动安装随包驱动，并检查设备是否启动成功。 |
+| 已有驱动异常、上次安装待处理或无法确认状态 | 跳过驱动安装并提示诊断，播放器仍可使用。 |
 
-</div>
+升级前先退出播放器。旧版谱库、键位和播放模式保存在 `%APPDATA%\com.rockmusic.workspace-player\library.json`。开始菜单入口沿用「RocoPlayer WPF」。在「应用设置 → DD 只读诊断」中可以查看驱动状态。[安装与诊断](docs/packaging.md)
 
----
+## 演奏第一首曲子
 
-## 一首歌，从导入到演奏
+1. 打开「我的谱库」，点击「导入文件」选择 MIDI 或 TXT，也可以点击「添加简谱」粘贴旋律。导入时会按 RocoMusic 工作台的规则自动适配九键。[小星星示例](docs/samples/twinkle.txt)
+2. 选中曲目，在右侧切换「9 键谱」和「原始音符」，点击底栏「试听」听两种版本。拖动进度条可以定位，右上角可以导出九键 MIDI。
+3. 在游戏里打开乐器。点击播放器左上角「捕获游戏窗口」，在三秒内切回游戏。按钮显示目标窗口名后，即可点击「开始演奏」，也可直接在游戏中按 **F8**。
 
-### 在线乐谱
+| 快捷键 | 操作 |
+| --- | --- |
+| **F8** | 开始演奏当前曲目 |
+| **F9** | 暂停或继续 |
+| **F10** | 停止演奏或试听，释放演奏按键 |
 
-在「在线乐谱」中搜索曲名或作者，也可浏览最新分享、翻页选择曲目。点击「下载到我的谱库」会下载 [RocoMusic 洛克乐谱](https://rocomusic.cn) 的公开 MIDI，保留原文件并适配到当前九键映射；不会自动播放。同一曲谱的相同文件不会重复入库，新版本作为独立曲目保留。
+失去游戏焦点时，播放器会暂停。置顶小窗支持切歌和停止，旁边的菜单可选择顺序播放、随机播放、单曲循环或列表循环。
 
-搜索和下载在后台执行，可取消，失败会显示原因。当前通过网站公开页面和下载入口读取 MIDI，不需要登录，也不上传个人曲库；网站页面结构变化时可能需要更新客户端。其他格式暂不支持直接下载入库。
+![与主播放栏使用同一配色的置顶小窗](docs/images/compact.png)
 
-RocoPlayer 为原「弦序」更名，应用标识和数据目录保持不变，继续读取现有曲库、设置。仓库已更名为 RocoPlayer；内部可执行文件名暂保留，以兼容现有启动脚本。
+## 谱库与音频转谱
 
-```text
-TXT / MIDI / 本地音频 → 保留原谱 → 自动九键编配 → 对比试听 → 游戏演奏
-```
+- **我的谱库**支持按曲名或来源搜索，按下载顺序或名称排序。删除当前曲目后会选中列表里的相邻曲目。
+- **在线下载**可以搜索 RocoMusic 谱库并保存 MIDI 原件。重复下载同一版本会复用已有记录。
+- **音频转谱**支持最长五分钟的 WAV、MP3、FLAC 和 Ogg Vorbis。可选本地 Basic Pitch 模型、频谱主旋律或 YIN 单音识别，再试听并导出结果。
 
-| 能力 | 说明 |
-| :--- | :--- |
-| **谱库与队列** | 搜索、删除、导出 MIDI；顺序、随机、列表循环、单曲循环 |
-| **本地音频转谱** | Basic Pitch ONNX 识别，支持主旋律音区偏好和实验性和弦模式 |
-| **九键编配** | 自动移调、折八度、处理缺失音；保留原始结果供对照 |
-| **分段试听** | 对比原音频、识别旋律与九键版本 |
-| **专注演奏** | 捕获游戏窗口、尝试切回游戏、左上角置顶小窗 |
-| **播放保护** | 失焦暂停、停止释放按键、异常不自动续播、退出时停止引擎 |
-| **输入后端** | Win32 或 DD；DD 实例复用，支持多键和弦 |
+## 从源码运行
 
-> **不是无误差扒谱器。** 合奏识别可能误选声部，九键无法完整还原任意原曲，请先试听。DD 是全局输入，不是后台窗口专属发键。
-
-## 快速开始
-
-### 源码运行
-
-准备 Windows x64、[PowerShell 7](https://github.com/PowerShell/PowerShell)、[uv](https://docs.astral.sh/uv/)、Node.js 22+、Rust MSVC、Visual Studio C++ Build Tools 和 WebView2。
+使用 Windows x64、PowerShell 7 和 .NET 8 SDK。在仓库根目录运行以下命令。
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-git clone https://github.com/Einzieg/RocoPlayer.git
-if ($LASTEXITCODE -ne 0) { throw 'Clone failed' }
-Set-Location xianxu
-uv sync --locked
-if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed' }
-.\Build-TauriPlayer.ps1
-.\Start-TauriPlayer.ps1
+dotnet run --project src/RocoPlayer -c Release
 ```
 
-### 独立安装包
-
-**[下载 Windows 安装包（Releases）](https://github.com/Einzieg/RocoPlayer/releases)**，或参阅 [构建说明](docs/packaging.md)。安装包内置 Python 引擎、模型及依赖，终端用户不需要 Python/Node/Rust，系统仍需 WebView2。
-
-首个公开版本为含 DD 的预览版，已通过构建、独立引擎及合成音频转谱测试；尚未完成干净 Windows 虚拟机安装验收。安装、升级前请保存曲谱并正常退出旧播放器。
-
-普通版不包含 DD。含 DD 版本可在软件安装阶段自动调用厂商驱动安装器，需要管理员授权；失败会提示，不关闭驱动签名检查，不在每次应用启动时重复安装，不在卸载软件时擅自移除共享驱动。
-
-## 第一次演奏
-
-1. 在游戏中打开乐器界面，设置里点击 **捕获游戏窗口**，倒计时内切回游戏。
-2. 导入谱子或转换本地音频，先用 **分段试听** 和 **无按键预览** 检查结果。
-3. 选择已可用的输入后端，点击播放，程序尝试切回游戏并缩为置顶小窗。
-
-| 快捷键 | 功能 |
-| :---: | :--- |
-| `F8` | 开始当前曲 |
-| `F9` | 暂停 / 继续 |
-| `F10` | 停止并释放本轮按键 |
-
-游戏可能影响快捷键。置顶窗口提供停止按钮，切出游戏也会触发失焦保护。不要同时运行新旧演奏器。
-
-<details>
-<summary><b>默认键位与简谱格式</b></summary>
-
-| 按键 | B | F | G | H | J | K | T | Y | U |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 音高 | A2 | E3 | F3 | G3 | A3 | B3 | C4 | D4 | E4 |
-
-默认 `1=C3`；空格分隔，`'` 升八度，`,` 降八度，`0` 休止，`:2` 两拍，`[3 5 7]` 和弦。示例：[小星星](samples/twinkle.txt)。键位可修改或实测校准。
-
-</details>
-
-## 走向优先重编（离线工具）
-
-`music_contour.py` 可对保存的曲库快照重新编配：优先保留旋律的上行、下行、高音峰值与同音重复，再重建稀疏低音。原谱、曲名、顺序和设置保留；已是九键成品或尚未确认旋律的多声部谱会保留原版，并在报告中注明。
+运行回归测试和构建安装包分别使用以下脚本。打包另需 NSIS 3 和 7-Zip。默认构建从固定的厂商版本取得 DD，校验签名和哈希，然后生成 `artifacts/RocoMusicPlayer-win-x64-Setup.exe` 和 `SHA256SUMS.txt`。[构建与发版](docs/packaging.md#github-actions-发版)
 
 ```powershell
 $ErrorActionPreference = 'Stop'
-# 先保存并正常关闭播放器；将完整 library.json 备份到本地 artifacts 目录。
-.\.venv\Scripts\python.exe music_contour.py artifacts/library.before.json artifacts/contour-candidate
-if ($LASTEXITCODE -ne 0) { throw 'Contour rebuild failed' }
+./scripts/Test-RocoPlayer.ps1
+./scripts/Build-Installer.ps1
 ```
 
-输出目录必须不存在。工具只生成候选 `library.json` 与 `report.json`，验证多种速度和按键时长下的事件配对，**不覆盖活库、不启动驱动、不发送按键**。试听确认后再备份并替换播放器数据。九键压缩仍有损，长音阶可能出现平台，不能恢复原谱里已经丢失的高音。
-
-从 **v0.1.3** 起，新导入的单旋律谱和音频识别旋律默认使用走向优先适配；多声部和弦保留原策略，稀疏伴奏在主旋律修正后重建。升级不自动重编已有曲库，上述离线工具用于生成整库候选。个人曲库与试听文件不随代码发布。
-
-## 数据与隐私
-
-- 谱库及设置位于 `%APPDATA%/com.rockmusic.workspace-player/`，更新不随意清空曲库。
-- 应用在本地分析音频，不上传歌曲；**DD 免费版的上游说明包含加载时联网鉴权**，不承诺它完全离线。
-- 仓库不附个人曲库、商业曲谱、下载歌曲、校准录音、个人设置或 DD 二进制。
-- 不自动播放，不修改内存完整性、安全启动或驱动签名策略。
-
-## 开发与贡献
-
-```powershell
-$ErrorActionPreference = 'Stop'
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-if ($LASTEXITCODE -ne 0) { throw 'Tests failed' }
-```
-
-`desktop/`：Tauri + React；`music_service.py`：常驻引擎；`music_neural.py`：模型推理；`music_adapt.py` / `music_sparse.py`：编配；`music_playback.py`：播放调度。
-
-欢迎提交问题和 PR。请提供可公开的最小复现，不附凭据、个人曲库或无权分享的音频。测试默认采用模拟输入，不向游戏发键；私人音频回归集不随仓库发布。
-
-## 许可与致谢
-
-原创代码采用 [MIT](LICENSE)。Basic Pitch 模型和移植逻辑遵循 Apache-2.0，其他依赖及 DD 许可边界见 [第三方说明](THIRD_PARTY_NOTICES.md)。本项目并非游戏官方产品，与游戏厂商、Spotify、Tauri 和 DD 作者无隶属关系。
+播放器以 MIT 许可发布。DD、游戏实录音色、Basic Pitch 模型和其他第三方组件各自适用其原有条款。[项目许可](LICENSE) · [第三方组件说明](docs/THIRD_PARTY_NOTICES.md)

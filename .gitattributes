@@ -1,3 +1,4 @@
 # Preserve upstream file bytes for provenance hash verification.
-models/basic-pitch/LICENSE -text
+src/RocoPlayer/Assets/models/basic-pitch/LICENSE -text
 *.onnx -text
+src/RocoPlayer/Assets/audio/handpan/v2/*.wav binary
