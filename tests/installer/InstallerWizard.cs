@@ -63,12 +63,25 @@ public static class InstallerWizard
     public static bool ShowsPath(IntPtr dialog, string path) => Find(dialog, h => ClassName(h) == "Static" && Text(h) == path) != IntPtr.Zero;
     public static bool IsChecked(IntPtr box) => SendMessageW(box, 0x00F0, IntPtr.Zero, IntPtr.Zero) != IntPtr.Zero;
     public static void Check(IntPtr box) => SendMessageW(box, 0x00F1, new IntPtr(1), IntPtr.Zero);
+    public static string NextCaption(IntPtr dialog) => Text(GetDlgItem(dialog, 1)).Replace("&", "");
+    public static bool HasPage(IntPtr dialog) => Find(dialog, h => ClassName(h) == "#32770") != IntPtr.Zero;
     public static void Next(IntPtr dialog)
     {
-        var popup = GetLastActivePopup(dialog);
-        if (popup != IntPtr.Zero && popup != dialog && IsWindowEnabled(popup)) dialog = popup;
         var button = GetDlgItem(dialog, 1);
         if (button != IntPtr.Zero && IsWindowEnabled(button))
             PostMessageW(dialog, 0x0111, new IntPtr(1), button);
+    }
+    public static string ModalMessage(IntPtr dialog)
+    {
+        var popup = GetLastActivePopup(dialog);
+        if (popup == IntPtr.Zero || popup == dialog || IsWindowEnabled(dialog)) return "";
+        var label = Find(popup, h => ClassName(h) == "Static" && Text(h).Length > 0);
+        return label == IntPtr.Zero ? "" : Text(label);
+    }
+    public static void ConfirmModal(IntPtr dialog)
+    {
+        var popup = GetLastActivePopup(dialog);
+        var button = Find(popup, h => ClassName(h) == "Button" && IsWindowEnabled(h));
+        if (button != IntPtr.Zero) PostMessageW(popup, 0x0111, new IntPtr(GetDlgCtrlID(button)), button);
     }
 }

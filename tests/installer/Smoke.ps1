@@ -27,29 +27,53 @@ function Wait-Control($process, [scriptblock]$find, [string]$description) {
 }
 
 function Finish-Wizard($process, [IntPtr]$window) {
+    [InstallerWizard]::Next($window)
     $timer = [Diagnostics.Stopwatch]::StartNew()
+    $lastMessage = ''
     while (!$process.WaitForExit(300) -and $timer.Elapsed.TotalSeconds -lt 150) {
-        [InstallerWizard]::Next($window)
+        $message = [InstallerWizard]::ModalMessage($window)
+        if ($message) {
+            if ($message -ne $lastMessage) { Write-Output "向导提示 $message" }
+            $lastMessage = $message
+            if ($message -notmatch 'DD') { throw "向导出现意外提示 $message" }
+            [InstallerWizard]::ConfirmModal($window)
+        } elseif ([InstallerWizard]::NextCaption($window) -match '^(Finish|Close|完成|关闭)') {
+            [InstallerWizard]::Next($window)
+        }
     }
     if (!$process.HasExited -or $process.ExitCode -ne 0) { throw '安装或卸载向导未成功退出。' }
 }
 
+function Open-FirstPage($process) {
+    $window = Wait-Control $process { [InstallerWizard]::MainDialog($process.Id) } '主窗口'
+    $null = Wait-Control $process {
+        if ([InstallerWizard]::HasPage($window) -and [InstallerWizard]::NextCaption($window) -match '^(Next|Install|Uninstall|下一步|安装|卸载)') { $window }
+    } '向导首页'
+    [InstallerWizard]::Next($window)
+    return $window
+}
+
 function Install-WithWizard([string]$expected, [string]$destination) {
     $process = Start-Process -FilePath $installer -WindowStyle Hidden -PassThru
-    $window = Wait-Control $process { [InstallerWizard]::MainDialog($process.Id) } '安装向导'
-    $edit = Wait-Control $process {
-        $field = [InstallerWizard]::DirectoryEdit($window)
-        if ($field -eq [IntPtr]::Zero) { [InstallerWizard]::Next($window) }
-        $field
-    } '安装目录输入框'
+    $window = Open-FirstPage $process
+    $edit = Wait-Control $process { [InstallerWizard]::DirectoryEdit($window) } '安装目录输入框'
     $shown = [InstallerWizard]::Text($edit)
     if ($shown -ne $expected) { throw "目录预填应为 $expected，实际为 $shown" }
     [InstallerWizard]::SetDirectory($edit, $destination)
+    if ([InstallerWizard]::Text($edit) -ne $destination) { throw '目录输入框未接受测试路径。' }
     Finish-Wizard $process $window
 }
 
 function Check-Installation([string]$directory) {
     $target = Join-Path $directory 'RocoPlayer.exe'
+    if (!(Test-Path -LiteralPath $registry)) {
+        $present = Test-Path -LiteralPath $target
+        $probes = @(Get-ChildItem -LiteralPath $logs -File -Filter '*.jsonl').Count
+        $otherViews = @('HKCU:\Software','HKLM:\Software\WOW6432Node') | Where-Object {
+            Test-Path -LiteralPath (Join-Path $_ 'Microsoft/Windows/CurrentVersion/Uninstall/RocoPlayerWPF')
+        }
+        throw "缺少 64 位机器安装记录。程序存在=$present，预检测日志数=$probes，其他注册位置=$otherViews，目标=$directory"
+    }
     $entry = Get-ItemProperty -LiteralPath $registry
     if ($entry.InstallLocation -ne $directory -or !(Test-Path -LiteralPath $target)) { throw "安装目录错误 $directory" }
     $shell = New-Object -ComObject WScript.Shell
@@ -65,12 +89,8 @@ function Uninstall-WithWizard([string]$directory, [bool]$deleteData) {
     $copy = Join-Path $scratch 'Uninstall-Test.exe'
     Copy-Item -LiteralPath (Join-Path $directory 'Uninstall.exe') -Destination $copy -Force
     $process = Start-Process -FilePath $copy -ArgumentList "_?=$directory" -WindowStyle Hidden -PassThru
-    $window = Wait-Control $process { [InstallerWizard]::MainDialog($process.Id) } '卸载向导'
-    $box = Wait-Control $process {
-        $field = [InstallerWizard]::Checkbox($window)
-        if ($field -eq [IntPtr]::Zero) { [InstallerWizard]::Next($window) }
-        $field
-    } '清理数据复选框'
+    $window = Open-FirstPage $process
+    $box = Wait-Control $process { [InstallerWizard]::Checkbox($window) } '清理数据复选框'
     if ([InstallerWizard]::IsChecked($box) -or ![InstallerWizard]::ShowsPath($window, $env:ROCK_MUSIC_DATA_DIR) -or
         ![InstallerWizard]::ShowsPath($window, $runtimeLogs)) {
         throw '默认选项或卸载向导显示的数据目录错误。'
