@@ -36,12 +36,12 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          if (!(Test-Path -LiteralPath (Join-Path ${env:ProgramFiles(x86)} 'NSIS/makensis.exe'))) {
-            choco install nsis --yes --no-progress
-          }
-          if (!(Test-Path -LiteralPath (Join-Path $env:ProgramFiles '7-Zip/7z.exe'))) {
-            choco install 7zip --yes --no-progress
-          }
+          $zip = Join-Path $env:RUNNER_TEMP 'nsis-3.13.zip'
+          Invoke-WebRequest -Uri 'https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.13/nsis-3.13.zip' -OutFile $zip -MaximumRetryCount 2
+          if ((Get-FileHash -LiteralPath $zip).Hash -ne 'BA63DFFC4410EE89193E1CB5A41989991BD77C61068DA17E3156D136B7B0B3D8') { throw 'NSIS 压缩包校验失败' }
+          Expand-Archive -LiteralPath $zip -DestinationPath $env:RUNNER_TEMP
+          $env:NSIS_HOME = Join-Path $env:RUNNER_TEMP 'nsis-3.13'
+          $env:PATH = "$env:NSIS_HOME;$env:PATH"
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
             if ($env:GITHUB_REF_NAME -notmatch '^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$') { throw '正式版标签须为 v主版本.次版本.补丁版本' }
             ./scripts/Build-Installer.ps1 -Version $env:GITHUB_REF_NAME.Substring(1)
